@@ -17,6 +17,7 @@
 
     `run`
 
+
 ### Running the Simulator
 #### Ensure that the following prerequisites are met:
 1. Install ArduPilot:
@@ -34,3 +35,7 @@
 3. Run QGroundControl:
 
     `./QGroundControl.AppImage`
+
+### Troubleshooting
+
+Please ensure that you grant camera permissions to the IDE you are using if you are running this on a Mac.
