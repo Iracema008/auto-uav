@@ -1,0 +1,4 @@
+numpy
+## removed possible conflicting packages
+opencv-contrib-python
+rich

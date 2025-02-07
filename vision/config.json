@@ -1,0 +1,30 @@
+{
+    "aruco_id": 0,
+    "centering_epsilon": 0.05,
+    "detector": {
+        "detector_type": "CV2",
+        "model_file": ""
+    },
+    "video": {
+        "source_idx": 0,
+        "width": 1920,
+        "height": 1080,
+        "fov_h": 78,
+        "fov_v": 43,
+        "max_buffer_size": 5,
+        "show_video": true,
+        "camera_calibration": {
+            "calibrate": true,
+            "show_pics": true,
+            "n_rows": 9,
+            "n_cols": 6,
+            "img": {
+                "img_format": ".jpg",
+                "img_path": "data/calibration"
+            },
+            "intrinsic_params": {
+
+            }
+        }
+    }
+}
