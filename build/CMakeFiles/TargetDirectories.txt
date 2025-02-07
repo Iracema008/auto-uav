@@ -1,0 +1,2 @@
+/Users/sema/Documents/auto-uav/build/CMakeFiles/edit_cache.dir
+/Users/sema/Documents/auto-uav/build/CMakeFiles/rebuild_cache.dir
