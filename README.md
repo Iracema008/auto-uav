@@ -27,7 +27,7 @@
 #### To run the simulator:
 1. Clone the repository: 
 
-    `git clone https://github.com/guchiyams/autonomous-uav.git`
+    `git clone https://github.com/Iracema008/auto-uav.git`
 
 2. In the root directory, run the command:
 
