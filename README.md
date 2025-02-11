@@ -6,7 +6,7 @@
     https://git-lfs.com/
 2. Clone the repository:
 
-    `git clone https://github.com/guchiyams/autonomous-uav.git && cd auto-uav`
+    `git clone https://github.com/Iracema008/auto-uav.git && cd auto-uav`
 3. Change the working directory:
 
     `cd vision`
