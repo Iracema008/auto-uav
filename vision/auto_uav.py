@@ -32,7 +32,7 @@ class AutoUav:
             conf: App configuration
         """
         self.conf = conf
-        ## allow camera settings on mac
+        # allow camera settings on mac
         self.video_capture: VideoCapture = VideoCapture(conf.video)
         self.camera_coordinate_transformer: CameraCoordinateTransformer = (
             CameraCoordinateTransformer(conf.video)
