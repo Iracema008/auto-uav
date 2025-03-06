@@ -63,4 +63,7 @@ class Cv2Detector(Detector):
         # if markers are detected, draw them on the frame
         if ids is not None:
             frame = cv2.aruco.drawDetectedMarkers(frame, corners, ids)
+            count_markers = len(ids)
+            cv2.putText(frame, f"Markers :  {count_markers} ", (10, 60), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 0, 255), 2)
+            cv2.imshow('Frame', frame)
         return frame
