@@ -36,6 +36,11 @@
 
     `./QGroundControl.AppImage`
 
+### Running the Camera
+1. cd depthai-python/ examples
+2. python3 ColorCamera/rgb_preview.py
+
+
 ### Troubleshooting
 
 Please ensure that you grant camera permissions to the IDE you are using if you are running this on a Mac.
