@@ -1,6 +1,6 @@
 # autonomous-uav
 
-### Running the arUco detection
+### Running the ArUco detection
 1. Ensure git lfs is installed and initialized:
 
     https://git-lfs.com/
@@ -37,8 +37,8 @@
     `./QGroundControl.AppImage`
 
 ### Running the Camera
-1. cd depthai-python/ examples
-2. python3 ColorCamera/rgb_preview.py
+    `cd depthai-python/ examples`
+    `python3 ColorCamera/rgb_preview.py`
 
 
 ### Troubleshooting
