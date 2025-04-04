@@ -12,6 +12,7 @@
         "fov_h": 78,
         "fov_v": 43,
         "max_buffer_size": 5,
+        "use_depthai": true,
         "show_video": true,
         "camera_calibration": {
             "calibrate": true,
