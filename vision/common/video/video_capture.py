@@ -40,6 +40,8 @@ class VideoCapture:
 
         # TODO: Integrate depthai frame capture with current opencv implementation
         self.use_depthai = getattr(video_conf, "use_depthai", False)
+        #logger.info(f"Connected cameras: {self.device.getConnectedCameraFeatures()}")
+        #logger.info(f"Device name: {self.device.getDeviceName()}")
 
 
         if self.use_depthai:
@@ -52,16 +54,16 @@ class VideoCapture:
 
             x_out.setStreamName("rgb")
             camera_rgb.setPreviewSize(300,300)
-            camera_rgb.getInterleaved(False)
+            camera_rgb.setInterleaved(False)
             camera_rgb.setColorOrder(dai.ColorCameraProperties.ColorOrder.RGB)
 
             # Linking output and input stream
             camera_rgb.preview.link(x_out.input)
-            
-            with dai.Device(pipeline) as self.device:  
-                # Output queue will be used to get the rgb frames from the output defined above
-                self.queue_rgb = self.device.getOutputQueue("rgb")
-                logger.info("Initialized Depthai pipeline")
+        
+            self.device = dai.Device(pipeline) 
+            # Output queue will be used to get the rgb frames from the output defined above
+            self.queue_rgb = self.device.getOutputQueue("rgb", maxSize =4 , blocking= False)
+            logger.info("Initialized Depthai pipeline")
         else:
             #frame = queue_rfgb.get()
             #print ("tryna open camera")
@@ -90,21 +92,29 @@ class VideoCapture:
     def _capture_frames(self) -> None:
         """Capture frames from the camera and put it in the buffer."""
         if self.use_depthai:
-            pass
+            while not self.stop_event.is_set():
+                # Switching frame output to OpenCv format
+                input_rgb = self.queue_rgb.get()
+                frame_rgb = input_rgb.getCvFrame()
+
+                cv2.imshow("Depthai preview", frame_rgb)
+                if cv2.waitKey(1) == ord('q'):
+                    break
+
+                if not self.frame_buffer.full():
+                    self.frame_buffer.put(frame_rgb)
+    
         else:
             while not self.stop_event.is_set():
                 # ret: bool, frame: numpy.ndarray
                 # read function is returning image into"frame" 
                 # if no frames are grabbed, will be empty 
                 ret, frame = self.video_cap.read()
-                print(f"frame read ")
-                
                 if not ret:
                     logger.error("Failed to read frame from capture")
                     break
                 # only populate to frame buffer if there is available space
                 if not self.frame_buffer.full():
-                    
                     self.frame_buffer.put(frame)
             self.video_cap.release()
 
