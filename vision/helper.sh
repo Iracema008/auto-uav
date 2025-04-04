@@ -7,15 +7,15 @@ create_venv_if_not_exists() {
     # Check if the virtual environment directory exists
     if [ ! -d "$VENV_DIR" ]; then
         echo "Virtual environment not found. Creating a new one..."
-
+        
         # Create the virtual environment
         python3 -m venv "$VENV_DIR"
-
+        
         if [ $? -ne 0 ]; then
             echo "Error: Failed to create virtual environment."
             return 1
         fi
-
+        
         echo "Virtual environment created successfully."
     else
         echo "Virtual environment already exists."
@@ -95,6 +95,10 @@ run() {
 
     # Activate the virtual environment
     source "$VENV_DIR/bin/activate"
+
+    # Fix depthai path
+    export PYTHONPATH="$(pwd)/../depthai:$PYTHONPATH"
+
     
     # Run the auto_uav.py script
     echo "Running $SCRIPT inside virtual environment..."
