@@ -50,13 +50,13 @@ class VideoCapture:
 
             # Creating camera nodes
             camera_rgb = pipeline.create(dai.node.ColorCamera)
+            
+            camera_rgb.setPreviewSize(649,480)
+            camera_rgb.setInterleaved(False)
+            camera_rgb.setColorOrder(dai.ColorCameraProperties.ColorOrder.BGR)
             x_out = pipeline.create(dai.node.XLinkOut)
 
             x_out.setStreamName("rgb")
-            camera_rgb.setPreviewSize(300,300)
-            camera_rgb.setInterleaved(False)
-            camera_rgb.setColorOrder(dai.ColorCameraProperties.ColorOrder.RGB)
-
             # Linking output and input stream
             camera_rgb.preview.link(x_out.input)
         
@@ -71,7 +71,7 @@ class VideoCapture:
             self.video_cap: cv2.VideoCapture = cv2.VideoCapture(0)    
          
             if self.video_cap is None or not self.video_cap.isOpened():
-                raise RuntimeError("Failed to initialize ideo Capture. Try a different index.")
+                raise RuntimeError("Failed to initialize Video Capture. Try a different index.")
             
             self.video_cap.set(cv2.CAP_PROP_FRAME_WIDTH, video_conf.width)
             self.video_cap.set(cv2.CAP_PROP_FRAME_HEIGHT, video_conf.height)
@@ -92,12 +92,12 @@ class VideoCapture:
     def _capture_frames(self) -> None:
         """Capture frames from the camera and put it in the buffer."""
         if self.use_depthai:
-            while not self.stop_event.is_set():
+            while True:
                 # Switching frame output to OpenCv format
                 input_rgb = self.queue_rgb.get()
                 frame_rgb = input_rgb.getCvFrame()
 
-                cv2.imshow("Depthai preview", frame_rgb)
+                cv2.imshow("Depthai Preview Yipiee", frame_rgb)
                 if cv2.waitKey(1) == ord('q'):
                     break
 
