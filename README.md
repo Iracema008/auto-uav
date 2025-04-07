@@ -37,7 +37,9 @@
     `./QGroundControl.AppImage`
 
 ### Running the Camera
+1. 
     `cd depthai-python/ examples`
+2. 
     `python3 ColorCamera/rgb_preview.py`
 
 
