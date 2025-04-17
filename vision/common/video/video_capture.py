@@ -5,6 +5,7 @@ import depthai as dai
 import numpy
 import queue
 import threading
+import time
 
 from types import SimpleNamespace
 from typing import Union
@@ -40,8 +41,6 @@ class VideoCapture:
 
         # TODO: Integrate depthai frame capture with current opencv implementation
         self.use_depthai = getattr(video_conf, "use_depthai", False)
-        #logger.info(f"Connected cameras: {self.device.getConnectedCameraFeatures()}")
-        #logger.info(f"Device name: {self.device.getDeviceName()}")
 
 
         if self.use_depthai:
@@ -51,7 +50,7 @@ class VideoCapture:
             # Creating camera nodes
             camera_rgb = pipeline.create(dai.node.ColorCamera)
             
-            camera_rgb.setPreviewSize(649,480)
+            camera_rgb.setPreviewSize(640,480)
             camera_rgb.setInterleaved(False)
             camera_rgb.setColorOrder(dai.ColorCameraProperties.ColorOrder.BGR)
             x_out = pipeline.create(dai.node.XLinkOut)
@@ -62,12 +61,9 @@ class VideoCapture:
         
             self.device = dai.Device(pipeline) 
             # Output queue will be used to get the rgb frames from the output defined above
-            self.queue_rgb = self.device.getOutputQueue("rgb", maxSize =4 , blocking= False)
-            logger.info("Initialized Depthai pipeline")
+            self.queue_rgb = self.device.getOutputQueue("rgb", maxSize =10 , blocking= True)
+            #logger.info("Initialized Depthai pipeline")
         else:
-            #frame = queue_rfgb.get()
-            #print ("tryna open camera")
-            #print(cv2.getBuildInformation()
             self.video_cap: cv2.VideoCapture = cv2.VideoCapture(0)    
          
             if self.video_cap is None or not self.video_cap.isOpened():
@@ -91,32 +87,50 @@ class VideoCapture:
 
     def _capture_frames(self) -> None:
         """Capture frames from the camera and put it in the buffer."""
-        if self.use_depthai:
-            while True:
-                # Switching frame output to OpenCv format
-                input_rgb = self.queue_rgb.get()
-                frame_rgb = input_rgb.getCvFrame()
+        self.saved_once = False  # Only save one frame per run
 
-                cv2.imshow("Depthai Preview Yipiee", frame_rgb)
-                if cv2.waitKey(1) == ord('q'):
-                    break
+        while not self.stop_event.is_set():
+            if self.use_depthai:
+                while True:
+                    try:
+                        # Get frame from the DepthAI queue
+                        input_rgb = self.queue_rgb.get()
+                        frame_rgb = input_rgb.getCvFrame()
 
-                if not self.frame_buffer.full():
-                    self.frame_buffer.put(frame_rgb)
-    
-        else:
-            while not self.stop_event.is_set():
+                        if not self.frame_buffer.full():
+                            self.frame_buffer.put(frame_rgb)
+                        '''
+                        if frame_rgb is not None:
+                            # Save the frame only once
+                            if not self.saved_once:
+                                cv2.imwrite("captured_frame.png", frame_rgb)
+                                print("framed saved, captured frames function")
+                                self.saved_once = True
+
+                            # Optional logging
+                        if not self.frame_buffer.full():
+                            logger.warning("Buffer not full")
+                            self.frame_buffer.put(frame_rgb)
+                            # logger.debug("Frame added to buffer")
+                        '''
+                        
+                    except queue.Empty:
+                        print("waiting for frame from dephai")
+                        continue
+            else:
                 # ret: bool, frame: numpy.ndarray
                 # read function is returning image into"frame" 
                 # if no frames are grabbed, will be empty 
                 ret, frame = self.video_cap.read()
                 if not ret:
                     logger.error("Failed to read frame from capture")
-                    break
+                    #break
                 # only populate to frame buffer if there is available space
                 if not self.frame_buffer.full():
+                    logger.warning("spit out frame")
                     self.frame_buffer.put(frame)
-            self.video_cap.release()
+                
+                self.video_cap.release()
 
     def stop(self) -> None:
         """Stop the video capture thread."""
@@ -128,7 +142,14 @@ class VideoCapture:
         """Read a frame from the frame_buffer (not from the VideoCapture).
 
         Returns: A numpy.ndarray representing a frame or None if frame buffer is empty
-        """
+        """ 
+        
+        print(self.frame_buffer, "crying")
+        print(self.frame_buffer.get())
         if not self.frame_buffer.empty():
-            return self.frame_buffer.get()
+            #print(self.frame_buffer.qsize())
+            #frame =  self.frame_buffer.get()
+            #cv2.imwrite("frame_buffer.png", frame)
+            return(self.frame_buffer.get)
         return None
+        
