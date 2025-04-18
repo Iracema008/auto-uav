@@ -22,9 +22,10 @@ class Cv2Detector(Detector):
 
     def __init__(self) -> None:
         """Constructor for Cv2Detector."""
-        #loads intrinsic matrix , change it to pull from current camera calibrator
+        #TODO: include this again when continuing depthai implementation
+        # loads intrinsic matrix , change it to pull from current camera calibrator
         # eating a pickle to serialize and deserialize file
-
+        
         #self.intrinsic_matrix=np.load('aruco_dir/datacalib_mtx_webcam.pkl', allow_pickle=True)
         #self.distortion=np.load('aruco_dir/datacalib_dist_webcam.pkl', allow_pickle=True)
 
@@ -46,17 +47,9 @@ class Cv2Detector(Detector):
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
         # detect the markers in the frame
-        #print(cv2.__version__)
-
         detector = cv2.aruco.ArucoDetector(self.aruco_dict, self.parameters)
         corners, ids, rejected = detector.detectMarkers(gray)
         
-
-        '''corners,ids,rejected = cv2.aruco.ArucoDetector.detectMarkers(
-    
-            gray, self.aruco_dict, parameters=self.parameters
-        )
-        '''
         if print_corners and corners:
             logger.debug(f"DETECTED ARUCO MARKER: \n\tcorner: {corners}\n\tid: {ids}")
 
