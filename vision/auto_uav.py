@@ -83,9 +83,11 @@ class AutoUav:
                 pass
             '''
             "capture_in_auto.png", 
-            frame = self.video_capture.read()
+            frame = self.video_capture._capture_frames()
             #frame = self.video_capture._capture_frames()
             logger.debug("reads after")
+            #cv2.imshow("reading prior to print", frame)
+            #print("reading", frame)
             #cv2.imwrite("capture_in_auto.png", frame)
             #print(frame, "this is none?")
 
@@ -93,8 +95,9 @@ class AutoUav:
             if frame is None:
             #or frame.size == 0:
                 logger.warning("Recieved Empty Frame")
-                cv2.waitKey(1)
-                break
+                #cv2.imshow("reading after empty frame", frame)
+                cv2.waitKey(2)
+                #break
         
             if frame is not None:
             # detect aruco
