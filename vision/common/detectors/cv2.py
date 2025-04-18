@@ -7,9 +7,9 @@ from common.detectors.detector import Detector
 from common.utils.log import get_logger
 
 logger = get_logger(__name__)
-
-
+#import os 
 class Cv2Detector(Detector):
+    
     """ArUco object detector.
 
     This detector is a wrapper for CV2 aruco marker detection. It does not use a vision model. It
@@ -22,6 +22,12 @@ class Cv2Detector(Detector):
 
     def __init__(self) -> None:
         """Constructor for Cv2Detector."""
+        #loads intrinsic matrix , change it to pull from current camera calibrator
+        # eating a pickle to serialize and deserialize file
+
+        #self.intrinsic_matrix=np.load('aruco_dir/datacalib_mtx_webcam.pkl', allow_pickle=True)
+        #self.distortion=np.load('aruco_dir/datacalib_dist_webcam.pkl', allow_pickle=True)
+
         self.aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
         self.parameters = cv2.aruco.DetectorParameters()
 
@@ -40,10 +46,17 @@ class Cv2Detector(Detector):
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
         # detect the markers in the frame
-        corners, ids, rejected = cv2.aruco.detectMarkers(
+        #print(cv2.__version__)
+
+        detector = cv2.aruco.ArucoDetector(self.aruco_dict, self.parameters)
+        corners, ids, rejected = detector.detectMarkers(gray)
+        
+
+        '''corners,ids,rejected = cv2.aruco.ArucoDetector.detectMarkers(
+    
             gray, self.aruco_dict, parameters=self.parameters
         )
-
+        '''
         if print_corners and corners:
             logger.debug(f"DETECTED ARUCO MARKER: \n\tcorner: {corners}\n\tid: {ids}")
 
@@ -62,8 +75,5 @@ class Cv2Detector(Detector):
         """
         # if markers are detected, draw them on the frame
         if ids is not None:
-            frame = cv2.aruco.drawDetectedMarkers(frame, corners, ids)
-            count_markers = len(ids)
-            cv2.putText(frame, f"Markers :  {count_markers} ", (10, 60), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 0, 255), 2)
-            cv2.imshow('Frame', frame)
+            frame = cv2.aruco.drawDetectedMarkers(frame.copy(), corners, ids)
         return frame
