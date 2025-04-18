@@ -99,40 +99,27 @@ class VideoCapture:
 
                         if not self.frame_buffer.full():
                             self.frame_buffer.put(frame_rgb)
-                        '''
-                        if frame_rgb is not None:
-                            # Save the frame only once
-                            if not self.saved_once:
-                                cv2.imwrite("captured_frame.png", frame_rgb)
-                                print("framed saved, captured frames function")
-                                self.saved_once = True
-
-                            # Optional logging
-                        if not self.frame_buffer.full():
-                            logger.warning("Buffer not full")
-                            self.frame_buffer.put(frame_rgb)
-                            # logger.debug("Frame added to buffer")
-                        '''
+            
                         return self.frame_buffer.get()     
                     except queue.Empty:
                         print("waiting for frame from dephai")
                         continue
                  
-            '''else:
+            else:
                 # ret: bool, frame: numpy.ndarray
                 # read function is returning image into"frame" 
                 # if no frames are grabbed, will be empty 
                 ret, frame = self.video_cap.read()
                 if not ret:
                     logger.error("Failed to read frame from capture")
-                    #break
+                    break
                 # only populate to frame buffer if there is available space
                 if not self.frame_buffer.full():
-                    logger.warning("spit out frame")
+                    #logger.warning("spit out frame")
                     self.frame_buffer.put(frame)
                 
                 self.video_cap.release()
-            '''
+                return self.frame_buffer.get()    
 
     def stop(self) -> None:
         """Stop the video capture thread."""
@@ -144,15 +131,8 @@ class VideoCapture:
         """Read a frame from the frame_buffer (not from the VideoCapture).
 
         Returns: A numpy.ndarray representing a frame or None if frame buffer is empty
-        """ 
-        
-        #print(self.frame_buffer, "crying")
-        #print(self.frame_buffer.get())
+        """     
         if not self.frame_buffer.empty():
-            #print(self.frame_buffer.qsize())
-            #frame =  self.frame_buffer.get()
-            #cv2.imwrite("frame_buffer.png", frame)
-            #cv2.imshow(self.frame_buffer.get())
             return self.frame_buffer.get()
-        #return None
+        return None
         
