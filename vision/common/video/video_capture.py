@@ -113,11 +113,12 @@ class VideoCapture:
                             self.frame_buffer.put(frame_rgb)
                             # logger.debug("Frame added to buffer")
                         '''
-                        
+                        return self.frame_buffer.get()     
                     except queue.Empty:
                         print("waiting for frame from dephai")
                         continue
-            else:
+                 
+            '''else:
                 # ret: bool, frame: numpy.ndarray
                 # read function is returning image into"frame" 
                 # if no frames are grabbed, will be empty 
@@ -131,6 +132,7 @@ class VideoCapture:
                     self.frame_buffer.put(frame)
                 
                 self.video_cap.release()
+            '''
 
     def stop(self) -> None:
         """Stop the video capture thread."""
@@ -144,12 +146,13 @@ class VideoCapture:
         Returns: A numpy.ndarray representing a frame or None if frame buffer is empty
         """ 
         
-        print(self.frame_buffer, "crying")
-        print(self.frame_buffer.get())
+        #print(self.frame_buffer, "crying")
+        #print(self.frame_buffer.get())
         if not self.frame_buffer.empty():
             #print(self.frame_buffer.qsize())
             #frame =  self.frame_buffer.get()
             #cv2.imwrite("frame_buffer.png", frame)
-            return(self.frame_buffer.get)
-        return None
+            #cv2.imshow(self.frame_buffer.get())
+            return self.frame_buffer.get()
+        #return None
         
