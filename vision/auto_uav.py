@@ -50,59 +50,22 @@ class AutoUav:
     def run(self) -> None:
         """Runs the main logic."""
         logger.info("AutoUav starting up...")
-  
         self.video_capture.start()
 
-        # TODO: Implement video_capture using depthai
-        # right now just trying to create the pipelines and preview here directly
         while True:
             # get frame from the video capture 
-            '''
-        if self.use_depthai:
-            # Create pipeline (graph of nodes)
-            pipeline = dai.Pipeline()
-
-            # Creating camera nodes
-            camera_rgb = pipeline.create(dai.node.ColorCamera)
-            mono_left = pipeline.creat(dai.node.MonoCamera)
-            mono_right = pipeline.create(dai.node.MonoCamera)
-
-            # Setting rgb and mono camer properties
-            camera_rgb.setPreviewSize(640,480)
-            camera_rgb.setInterleaved(False)
-            camera_rgb.setColorOrder(dai.ColorCameraProperties.ColorOrder.BGR)
-            x_out = pipeline.create(dai.node.XLinkOut)
-
-            x_out.setStreamName("rgb")
-            camera_rgb.preview.link(x_out.input)
-        
-            self.device = dai.Device(pipeline) 
-            self.queue_rgb = self.device.getOutputQueue("rgb", maxSize =4 , blocking= True)
-
-            with dai as device:
-                pass
-            '''
-            "capture_in_auto.png", 
             frame = self.video_capture._capture_frames()
-            #frame = self.video_capture._capture_frames()
-            logger.debug("reads after")
-            #cv2.imshow("reading prior to print", frame)
-            #print("reading", frame)
-            #cv2.imwrite("capture_in_auto.png", frame)
-            #print(frame, "this is none?")
-
+            #changed from read() to capture_frames()
 
             if frame is None:
             #or frame.size == 0:
                 logger.warning("Recieved Empty Frame")
-                #cv2.imshow("reading after empty frame", frame)
-                cv2.waitKey(2)
-                #break
+                cv2.waitKey(1)
+                break
         
             if frame is not None:
             # detect aruco
                 corners, ids, _ = self.detector.detect(frame, True)
-                logger.warning("after assigning corners")
 
             # update fps tracker
             self.fps_tracker.update()
