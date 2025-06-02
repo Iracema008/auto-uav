@@ -12,8 +12,9 @@ from common.utils.log import get_logger
 from common.video.camera_coordinate_transformer import CameraCoordinateTransformer
 from common.video.video_capture import VideoCapture
 
-logger = get_logger(__name__)
 
+logger = get_logger(__name__)
+target_IDs = [3, 7]
 
 class AutoUav:
     """Main autonomous UAV class.
@@ -40,6 +41,9 @@ class AutoUav:
         self.detector: Detector = DetectorManager(conf.detector).get_detector()
         self.fps_tracker: FPSTracker = FPSTracker()
         self.use_depthai = getattr(conf, "use_depthai", False)
+        self.correct_marker = False
+        self.marker_detected_before = False
+
 
     def clean_up(self) -> None:
         """Cleanup for AutoUav."""
@@ -47,10 +51,65 @@ class AutoUav:
         self.video_capture.stop()
         cv2.destroyAllWindows()
 
+# Write package save
+
+
+    #IS THIS SCRAPS FROM OLD METHOD?
+    #def flagged_marker(self, correct_marker)->None:
+    # eventually want to save image -- we want to save the greyscale image from the detector
+    #   cv2.imwrite("Snapshot", )
+    #   pass
+   
+   
+    ######################################### -- We still need to write a time limit so it doesnt go infinite
+    #TODO: create a seperate function to flag correct marker, when detected enter our "centering pathing"
+    #WROTE THIS -- DIDNT TEST IT
+    # Keep it running 
+    
+    #this is handed found_ids, but could probably be rewritted for just ids
+    #need to reconfigure the variable handed here, right now a list of strings works
+    
+    def check_ids(self, frame, found_ids):
+        #Array for the global IDs, target_IDs = [3, 7]
+        # possibliy flatten the found ids bc opencv reads it as a 2d array
+        if found_ids is None:
+            return
+
+        #Correct Marker Flag throws true if any ids are equivalent to target_IDs
+        #loop that checks if anything in goal_ids is in target -- any(TRUE) flags true on any response
+        self.correct_marker = any(id_ in target_IDs for id_ in found_ids)
+
+        #return correct_marker
+        #If the marker is true, we save the datapack
+        if self.correct_marker and not self.marker_detected_before:
+            #Do we
+            self.datapack_save(frame, found_ids)
+            self.marker_detected_before = True
+            
+        return found_ids
+
+    def datapack_save(self, frame, FLIGHTDATA):
+        #maybe put the timer here?
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        cv2.imwrite("pack_image.png", gray)
+
+        #this will write data to a .txt -- Are Global Variable easier?
+        with open("datapack.txt", 'w') as file:
+
+            #if it is a list, print it like one Otherwise just write it
+            if isinstance(FLIGHTDATA, list):
+                file.writelines([str(line) + "\n" for line in FLIGHTDATA])
+            
+            else:
+                file.write(str(FLIGHTDATA))
+
+
+
     def run(self) -> None:
         """Runs the main logic."""
         logger.info("AutoUav starting up...")
         self.video_capture.start()
+    
 
         while True:
             # get frame from the video capture 
@@ -58,14 +117,13 @@ class AutoUav:
             #changed from read() to capture_frames()
 
             if frame is None:
-            #or frame.size == 0:
                 logger.warning("Recieved Empty Frame")
                 cv2.waitKey(1)
                 break
         
-            if frame is not None:
-            # detect aruco
-                corners, ids, _ = self.detector.detect(frame, True)
+            
+            corners, ids, _ = self.detector.detect(frame, True)
+            self.check_ids(frame, ids)
 
             # update fps tracker
             self.fps_tracker.update()
@@ -154,6 +212,9 @@ class AutoUav:
 
         self.clean_up()
         logger.info("Shutting down gracefully")
+
+
+
 
 
 if __name__ == "__main__":
