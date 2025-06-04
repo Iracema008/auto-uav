@@ -75,7 +75,7 @@ init_venv() {
 # Function to run the auto_uav.py script inside the virtual environment
 run() {
     local VENV_DIR=".venv"
-    local SCRIPT="auto_uav.py"
+    local SCRIPT="main.py"
 
     export PYTHONDONTWRITEBYTECODE=1
 
