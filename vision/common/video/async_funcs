@@ -1,0 +1,84 @@
+''' Giovanni's file '''
+
+import asyncio
+import cv2
+
+from vision.common.video.gps_pull_mod import gpsgrabber
+from video_capture import _capture_frames
+
+#GPS PULLER
+array_Frame = None
+
+async def async_function():
+    print("Give GPS Coordinates")
+    lan, lon, hdg = gpsgrabber()
+
+    await asyncio.sleep(1)
+    return lan, lon, hdg 
+
+
+async def save_frame(temp):
+    print("Saving frame...")
+    await asyncio.sleep(2)
+    
+    frame_data = "fake_frame_data"  # Replace with actual frame capture logic
+    print("Frame saved.")
+    return frame_data
+    
+#FRAME SAVER
+async def async_function_2():
+    print("Saving frame...")
+
+    await asyncio.sleep(2)
+    frame = _capture_frames()
+    print("Frame saved.")
+    return frame
+
+
+#CONCURRENT FRAME AND GPS
+async def CONCURRENT_FRAME_AND_GPS():
+    await asyncio.gather(
+        async_function(),
+        async_function_2()
+    )
+
+
+#Both run at the same time
+while True:
+    asyncio.run(CONCURRENT_FRAME_AND_GPS())
+    print("Got GPS Coordinates and Frame at same time.")
+
+
+
+'''
+ async def save_frame(temp):
+     print("Saving frame...")
+     await asyncio.sleep(2)
+     corners, ids, _ = aruco.detectMarkers(gray, aruco_dict, paramaters = parameters)
+     while True:
+         frame = video.read()
+         if frame is not None:
+             # Convert to grayscale
+             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+             # Load dictionary & parameters
+             aruco_dict = aruco.Dictionary_get(aruco.DICT_6X6_50)
+             parameters = aruco.DetectorParameters_create()
+
+             # Detect markers
+             corners, ids, rejected = aruco.detectMarkers(gray, aruco_dict, parameters=parameters)
+
+             # Draw detected markers and print their IDs
+             if ids is not None:
+                 aruco.drawDetectedMarkers(frame, corners, ids)
+                 print("Detected IDs:", ids.flatten())
+
+             # Show frame with annotations
+             cv2.imshow("Aruco Detection", frame)
+
+         if cv2.waitKey(1) & 0xFF == ord('q'):
+             break
+     frame_data = "fake_frame_data"  # Replace with actual frame capture logic
+     print("Frame saved.")
+     return frame_data
+'''
