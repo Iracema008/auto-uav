@@ -1,0 +1,165 @@
+import cv2 as cv
+from cv2 import aruco
+import numpy as np
+import math
+from gps_pull import lat, lon
+
+
+# Load calibration data
+calib_data_path = "C:\\Users\\Smi\\Desktop\\Aruco_1\\MultiMatrix.npz"  # TODO: Update path for Raspberry Pi
+calib_data = np.load(calib_data_path)
+
+cam_mat = calib_data["camMatrix"]
+dist_coef = calib_data["distCoef"]
+
+
+
+
+
+
+#Analyzing image and calculating disctance from frame
+def analyze_frame(frame, marker_size_cm):
+    marker_dict = aruco.Dictionary_get(aruco.DICT_6X6_50)
+    param_markers = aruco.DetectorParameters_create()
+
+    gray_frame = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
+    marker_corners, marker_IDs, _ = aruco.detectMarkers(
+        gray_frame, marker_dict, parameters=param_markers
+    )
+
+    distance = None
+
+    if marker_corners:
+        rVec, tVec, _ = aruco.estimatePoseSingleMarkers(
+            marker_corners, marker_size_cm, cam_mat, dist_coef
+        )
+        for i, (ids, corners) in enumerate(zip(marker_IDs, marker_corners)):
+            corners = corners.reshape(4, 2).astype(int)
+            top_right = corners[0].ravel()
+            bottom_right = corners[2].ravel()
+
+            distance = np.linalg.norm(tVec[i][0])
+
+            cv.polylines(frame, [corners], True, (0, 255, 255), 4, cv.LINE_AA)
+            cv.drawFrameAxes(frame, cam_mat, dist_coef, rVec[i], tVec[i], 4)
+
+            cv.putText(
+                frame,
+                f"id: {ids[0]} Dist: {round(distance, 2)}",
+                top_right,
+                cv.FONT_HERSHEY_PLAIN,
+                1.3,
+                (0, 0, 255),
+                2,
+                cv.LINE_AA,
+            )
+            cv.putText(
+                frame,
+                f"x:{round(tVec[i][0][0], 1)} y:{round(tVec[i][0][1], 1)}",
+                bottom_right,
+                cv.FONT_HERSHEY_PLAIN,
+                1.0,
+                (0, 0, 255),
+                2,
+                cv.LINE_AA,
+            )
+    else:
+        print("No ArUco markers detected.")
+
+    cv.imshow("Aruco Frame", frame)
+    cv.waitKey(0)
+    cv.destroyAllWindows()
+
+    return distance
+
+
+def pythag_distance(mkr_distance_cm, drone_lat, drone_long, heading_deg):
+    # Convert cm to meters
+    mkr_distance_m = mkr_distance_cm / 100.0
+
+    # Convert heading to radians (0° = North, 90° = East)
+    heading_rad = math.radians(heading_deg)
+
+    # Approximate conversions
+    meters_per_deg_lat = 111_320
+    meters_per_deg_lon = 111_320 * math.cos(math.radians(drone_lat))
+
+    # Decompose distance into N/S (latitude) and E/W (longitude) components
+    delta_north = math.cos(heading_rad) * mkr_distance_m
+    delta_east = math.sin(heading_rad) * mkr_distance_m
+
+    # Convert meters to degrees
+    delta_lat = delta_north / meters_per_deg_lat
+    delta_lon = delta_east / meters_per_deg_lon
+
+    # Calculate marker's lat/lon
+    marker_lat = drone_lat + delta_lat
+    marker_long = drone_long + delta_lon
+
+    return marker_lat, marker_long
+
+
+def detect_marker_and_get_gps(frame, marker_size_cm, cam_mat, dist_coef, drone_lat, drone_long, heading_deg):
+    # Prepare ArUco dictionary and parameters
+    marker_dict = aruco.Dictionary_get(aruco.DICT_6X6_50)
+    param_markers = aruco.DetectorParameters_create()
+    
+    # Convert frame to grayscale
+    gray_frame = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
+
+    # Detect markers
+    marker_corners, marker_IDs, _ = aruco.detectMarkers(gray_frame, marker_dict, parameters=param_markers)
+    marker_lat, marker_long = None, None
+
+    if marker_corners:
+        rVec, tVec, _ = aruco.estimatePoseSingleMarkers(marker_corners, marker_size_cm, cam_mat, dist_coef)
+
+        for i, (ids, corners) in enumerate(zip(marker_IDs, marker_corners)):
+            corners = corners.reshape(4, 2).astype(int)
+            top_right = corners[0].ravel()
+            bottom_right = corners[2].ravel()
+
+            distance_cm = np.linalg.norm(tVec[i][0])
+
+            # Draw marker and axes
+            cv.polylines(frame, [corners], True, (0, 255, 255), 4, cv.LINE_AA)
+            cv.drawFrameAxes(frame, cam_mat, dist_coef, rVec[i], tVec[i], 4)
+
+            # # Display ID and distance
+            # cv.putText(frame, f"id: {ids[0]} Dist: {round(distance_cm, 2)}",
+            #            top_right, cv.FONT_HERSHEY_PLAIN, 1.3, (0, 0, 255), 2, cv.LINE_AA)
+            # cv.putText(frame, f"x:{round(tVec[i][0][0], 1)} y:{round(tVec[i][0][1], 1)}",
+            #            bottom_right, cv.FONT_HERSHEY_PLAIN, 1.0, (0, 0, 255), 2, cv.LINE_AA)
+
+            # Convert cm to meters
+            distance_m = distance_cm / 100.0
+
+            # Heading in radians (0° = North, 90° = East)
+            heading_rad = math.radians(heading_deg)
+
+            # Earth's curvature approximation
+            meters_per_deg_lat = 111_320
+            meters_per_deg_lon = 111_320 * math.cos(math.radians(drone_lat))
+
+            # Convert relative position to GPS offset
+            delta_north = math.cos(heading_rad) * distance_m
+            delta_east = math.sin(heading_rad) * distance_m
+            delta_lat = delta_north / meters_per_deg_lat
+            delta_lon = delta_east / meters_per_deg_lon
+
+            # Calculate marker GPS position
+            marker_lat = drone_lat + delta_lat
+            marker_long = drone_long + delta_lon
+
+            # We assume only the first marker is used
+            break
+    else:
+        print("No ArUco markers detected.")
+
+    # Show annotated frame
+    cv.imshow("Aruco Frame", frame)
+    cv.waitKey(0)
+    cv.destroyAllWindows()
+
+    return marker_lat, marker_long
+
