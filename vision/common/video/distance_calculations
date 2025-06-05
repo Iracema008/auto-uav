@@ -2,24 +2,24 @@ import cv2 as cv
 from cv2 import aruco
 import numpy as np
 import math
-from gps_pull import lat, lon
 
+from common.video.gps_pull_mod import gpsgrabber
 
 # Load calibration data
-calib_data_path = "C:\\Users\\Smi\\Desktop\\Aruco_1\\MultiMatrix.npz"  # TODO: Update path for Raspberry Pi
+calib_data_path = r"MultiMatrix.npz"  # TODO: Update path for Raspberry Pi
 calib_data = np.load(calib_data_path)
 
 cam_mat = calib_data["camMatrix"]
 dist_coef = calib_data["distCoef"]
 
+marker_size_cm = 30.48
 
 
 
-
-
+cv.aruco
 #Analyzing image and calculating disctance from frame
 def analyze_frame(frame, marker_size_cm):
-    marker_dict = aruco.Dictionary_get(aruco.DICT_6X6_50)
+    marker_dict = aruco.Dictionary(aruco.DICT_6X6_50)
     param_markers = aruco.DetectorParameters_create()
 
     gray_frame = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
@@ -101,8 +101,10 @@ def pythag_distance(mkr_distance_cm, drone_lat, drone_long, heading_deg):
 
 def detect_marker_and_get_gps(frame, marker_size_cm, cam_mat, dist_coef, drone_lat, drone_long, heading_deg):
     # Prepare ArUco dictionary and parameters
-    marker_dict = aruco.Dictionary_get(aruco.DICT_6X6_50)
-    param_markers = aruco.DetectorParameters_create()
+    marker_dict = cv.aruco.getPredefinedDictionary(aruco.DICT_6X6_250)
+    param_markers = cv.aruco.DetectorParameters()
+
+    print(frame)
     
     # Convert frame to grayscale
     gray_frame = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
