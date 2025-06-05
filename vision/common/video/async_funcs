@@ -3,52 +3,61 @@
 import asyncio
 import cv2
 
-from vision.common.video.gps_pull_mod import gpsgrabber
-from video_capture import _capture_frames
+from common.video.gps_pull_mod import gpsgrabber
+from common.video.video_capture import VideoCapture
 
 #GPS PULLER
 array_Frame = None
 
-async def async_function():
+async def gps_coords():
     print("Give GPS Coordinates")
-    lan, lon, hdg = gpsgrabber()
+    lat, lon, hdg = gpsgrabber()
 
-    await asyncio.sleep(1)
-    return lan, lon, hdg 
+    #await asyncio.sleep(1)
+    return lat, lon, hdg 
 
 
-async def save_frame(temp):
+async def save_frame(temp_frame, temp_ids):
     print("Saving frame...")
-    await asyncio.sleep(2)
-    
-    frame_data = "fake_frame_data"  # Replace with actual frame capture logic
-    print("Frame saved.")
-    return frame_data
-    
-#FRAME SAVER
-async def async_function_2():
-    print("Saving frame...")
+    #await asyncio.sleep(2)
 
-    await asyncio.sleep(2)
-    frame = _capture_frames()
+    gray =cv2.cvtColor(temp_frame, cv2.COLOR_BGR2GRAY)
+    cv2.imwrite("temp_frame_save.png", gray)
+    
+    #possibly write to list
+    with open("temp_ids_save.txt", "w") as file:
+        file.write(str(temp_ids))
+    
     print("Frame saved.")
-    return frame
+    return (temp_frame, temp_ids)
 
+
+t_lat = 0
+t_lon = 0
+t_hdg = 0
+t_frame= None
 
 #CONCURRENT FRAME AND GPS
-async def CONCURRENT_FRAME_AND_GPS():
+async def CONCURRENT_FRAME_AND_GPS(temp_frame, temp_ids):
     await asyncio.gather(
-        async_function(),
-        async_function_2()
+        gps_coords(),
+        save_frame(temp_frame, temp_ids)
+
     )
+
+    return t_frame, t_lat, t_lon, t_hdg, temp_ids
 
 
 #Both run at the same time
-while True:
-    asyncio.run(CONCURRENT_FRAME_AND_GPS())
-    print("Got GPS Coordinates and Frame at same time.")
+#while True:
+#    asyncio.run(CONCURRENT_FRAME_AND_GPS())
+#    print("Got GPS Coordinates and Frame at same time.")
 
+'''
+t_lat, t_lon, t_hdg = gps_coords(),
+        t_frame = save_frame(temp_frame, temp_ids)
 
+'''
 
 '''
  async def save_frame(temp):
@@ -56,7 +65,8 @@ while True:
      await asyncio.sleep(2)
      corners, ids, _ = aruco.detectMarkers(gray, aruco_dict, paramaters = parameters)
      while True:
-         frame = video.read()
+         frame = v
+         ideo.read()
          if frame is not None:
              # Convert to grayscale
              gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
