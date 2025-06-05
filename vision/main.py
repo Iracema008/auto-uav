@@ -1,36 +1,40 @@
-'''auto_uav.py switched to "main.py"'''
 import cv2
 import numpy as np
-
-
 import asyncio
+
 from types import SimpleNamespace
-
-
 # from common.video.fps_counter import FPSTracker
 from common.utils.json_utils import read_json
 from common.utils.log import get_logger
 from common.video.camera_coordinate_transformer import CameraCoordinateTransformer
 from common.video.video_capture import VideoCapture
 
-from common.video.distance_calculations import detect_marker_and_get_gps
-from vision.common.video.gps_pull_mod import gpsgrabber
+from common.video.distance_calculations import detect_marker_and_get_gps, cam_mat, dist_coef
+
+from common.video.gps_pull_mod import gpsgrabber
+# from common.video.asyncfunc import  CONCURRENT_FRAME_AND_GPS
+
+from common.video.LORA_comms import send_rfm
+from common.video.fps_counter import FPSTracker
+from common.detectors.detector import Detector
+from common.detectors.detector_manager import DetectorManager
+from common.video.asyncfunc import CONCURRENT_FRAME_AND_GPS
 
 logger = get_logger(__name__)
 
-distance = None,
-marker_lat = None,
-marker_long = None,
+distance = 0
+marker_lat = 0
+marker_long = 0
 
 # Load calibration data
-
-calib_data_path = "C:/home/pi/Downloads/MultiMatrix.npz"  # TODO: Update path for Raspberry Pi
+calib_data_path = r"MultiMatrix.npz"
 calib_data = np.load(calib_data_path)
+
 
 cam_mat = calib_data["camMatrix"]
 dist_coef = calib_data["distCoef"]
 
-target_IDs = [3, 7 ]
+target_IDs = [2, 7 ]
 marker_size_cm = 30.48
 
 
@@ -55,36 +59,47 @@ class AutoUav:
         self.camera_coordinate_transformer: CameraCoordinateTransformer = (
             CameraCoordinateTransformer(conf.video)
         )
+       
+        self.detector: Detector = DetectorManager(conf.detector).get_detector()
+        self.fps_tracker: FPSTracker = FPSTracker()
+
         self.use_depthai = getattr(conf, "use_depthai", False)
+        self.correct_marker = False
+        self.marker_detected_before =False
 
     # assuming async def is here to save all frame dats
-    async def temp_save(self, frame, FLIGHTDATA, lat=None, lon=None, hdg=None) -> None:
+    async def temp_save(self, frame, lat=None, lon=None, hdg=None) -> None:
         pass
 
     # we then want to check id to process the temp saved to deicede wheter to return
     # should read temp data and return perm
-    def check_ids(self, frame, found_ids, curr_lat, curr_lon, curr_hdg):
+    def check_ids(self, t_frame, found_ids, t_lat, t_lon, t_hdg):
         # run on all temp saved
         if found_ids is None:
-            print("no ids")
-            return
-        if any(id_ in target_IDs for id_ in found_ids):
-            # will save temp if yes
-            # self.temp_save(self, frame, found_ids)
+            # print("no ids")
+            return t_frame, None, t_lat, t_lon, t_hdg
+        
+        #Correct Marker Flag throws true if any ids are equivalent to target_IDs
+        #loop that checks if anything in goal_ids is in target -- any(TRUE) flags true on any response
+        self.correct_marker = any(id in target_IDs for id in found_ids)
 
-            print("found target ids, now saving as permanent data.")
-            return {"lat": curr_lat, "lon": curr_lon, "hdg": curr_hdg}
+        #return correct_marker
+        #If the marker is true, we save the datapack
+        if self.correct_marker:
+            #and not self.marker_detected_before:
+            #self.datapack_save(t_frame, found_ids)
+            self.marker_detected_before = True
+            # possibly add save CORRECT MARKER, instead of just temp
+            return t_frame, found_ids, t_lat, t_lon, t_hdg
 
-        return None
+        # If no correct_marker but found_ids wasn’t None, still return something
+        return t_frame, None, t_lat, t_lon, t_hdg
     
     def clean_up(self) -> None:
         """Cleanup for AutoUav."""
         logger.info("Cleaning up")
         self.video_capture.stop()
         cv2.destroyAllWindows()
-
-
-
 
     def run(self) -> None:
         """Runs the main logic."""
@@ -99,6 +114,7 @@ class AutoUav:
             #drone_lat, drone_long, heading_deg = self.gpspull(),
             #lat, lon =  detect_marker_and_get_gps(frame, marker_size_cm, cam_mat, dist_coef, drone_lat, drone_long, heading_deg)
             # get frame from the video capture
+
             lat, lon, hdg = gpsgrabber()
             logger.info(f"Received GPS Data - Lat: {lat}, Lon: {lon}, Heading: {hdg}")
 
@@ -109,32 +125,63 @@ class AutoUav:
                 cv2.waitKey(1)
              
             if frame is not None:
-            # detect aruco
+                # detect aruco
                 corners, ids, _ = self.detector.detect(frame, True)
 
                 # assuming a call to async function here
-                permanent_data = self.check_ids(frame, ids, lat, lon, hdg)
-                # if we want to keep perm data
-                if permanent_data:
-                    # send perm data to calculator distance
-                    # (frame, marker_size_cm, cam_mat, dist_coef, drone_lat, drone_long, heading_deg) ?
-                    print(f"Permanent Data Saved: {permanent_data}")
+                # print("Got GPS Coordinates and Frame at same time.")
+                #= asyncio.run(CONCURRENT_FRAME_AND_GPS(frame, ids))
+                
+                # add a wait time 
+                #print("about to save permant_data")
+                t_frame, matched_ids, t_lat, t_lon, t_hdg= self.check_ids(frame, ids, lat, lon, hdg)
+                print("perm data after check ids")
 
-                    # function atrs of frame
-                    marker_size_cm = permanent_data.get("marker_size_cm", 10)
-                    cam_mat = permanent_data.get("cam_mat")
-                    dist_coef = permanent_data.get("dist_coef")
-                    drone_lat = permanent_data.get("lat")
-                    drone_long = permanent_data.get("lon")
-                    heading_deg = permanent_data.get("hdg")
-
-                    # call the dist_calc function
+                #5) If we found a new “correct” marker, compute its GPS,
+                if matched_ids is not None:
                     marker_lat, marker_long = detect_marker_and_get_gps(
-                        frame, marker_size_cm, cam_mat, dist_coef, drone_lat, drone_long, heading_deg
+                        t_frame,
+                        marker_size_cm,
+                        cam_mat,
+                        dist_coef,
+                        t_lat,
+                        t_lon,
+                        t_hdg,
                     )
+                    send_rfm(marker_lat, marker_long)
+                    print(f"Marker GPS Coordinates → lat: {marker_lat}, lon: {marker_long}")
+            
+                #if permanent_data is not None:
+                # add to check correct marker and then save as perm, send that to calculator distance
+                # print(f"Permanent Data Saved: {permanent_data}")
 
-                    print(f"Marker GPS Coordinates: Lat= {marker_lat}, Lon= {marker_long}")
-                # else: delete temp data
+                # function atrs of frame
+                print("function attributes ")
+                
+                marker_size_cm = 30.48
+
+                cam_mat = calib_data["camMatrix"]
+                dist_coef = calib_data["distCoef"]
+                # marker_size_cm = permanent_data.get("marker_size_cm", 10)
+                # cam_mat = permanent_data.get("cam_mat")
+                # dist_coef = permanent_data.get("dist_coef")
+                # drone_lat = permanent_data.get("lat")
+                # drone_long = permanent_data.get("lon")
+                # heading_deg = permanent_data.get("hdg")
+
+                # call the dist_calc function
+
+                #This is not NONE, should be fixed
+                #am_mat = None
+                #ist_coef = None
+                frame, marker_size_cm, cam_mat, dist_coef, drone_lat, drone_long, heading_deg = detect_marker_and_get_gps(
+                    frame, marker_size_cm, cam_mat, dist_coef, drone_lat, drone_long, heading_deg
+                )
+                # call lora comms
+                send_rfm(marker_lat, marker_long)
+
+                print(f"Marker GPS Coordinates: Lat= {marker_lat}, Lon= {marker_long}")
+            # else: delete temp data
 
             # if no corners are detected, show the frame and continue to next frame
             if not corners:
