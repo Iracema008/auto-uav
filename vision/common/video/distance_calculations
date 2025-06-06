@@ -1,187 +1,81 @@
-import cv2
+
+import cv2 as cv
+from cv2 import aruco
 import numpy as np
-import asyncio
-
-from types import SimpleNamespace
-# from common.video.fps_counter import FPSTracker
-from common.utils.json_utils import read_json
-from common.utils.log import get_logger
-from common.video.camera_coordinate_transformer import CameraCoordinateTransformer
-from common.video.video_capture import VideoCapture
-
-from common.video.distance_calculations import detect_marker_and_get_gps, cam_mat, dist_coef
-
-from common.video.gps_pull_mod import gpsgrabber
-# from common.video.asyncfunc import  CONCURRENT_FRAME_AND_GPS
-
-from common.video.LORA_comms import send_rfm
-from common.video.fps_counter import FPSTracker
-from common.detectors.detector import Detector
-from common.detectors.detector_manager import DetectorManager
-from common.video.asyncfunc import CONCURRENT_FRAME_AND_GPS
-
-logger = get_logger(__name__)
-
-distance = 0
-marker_lat = 0
-marker_long = 0
+import math
 
 # Load calibration data
 calib_data_path = r"MultiMatrix.npz"
 calib_data = np.load(calib_data_path)
- 
 
 cam_mat = calib_data["camMatrix"]
 dist_coef = calib_data["distCoef"]
 
-target_IDs = [3, 7 ]
-marker_size_cm = 30.48
+def detect_marker_and_get_gps(frame, marker_size_cm):
+    marker_dict = aruco.getPredefinedDictionary(aruco.DICT_6X6_250)
+    parameters = aruco.DetectorParameters()
+    detector = aruco.ArucoDetector(marker_dict, parameters)
 
+    gray_frame = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
+    marker_corners, marker_IDs, _ = detector.detectMarkers(gray_frame)
 
-class AutoUav:
-    """Main autonomous UAV class.
+    distance = None
 
-    Attr:
-        conf: App configurations
-        video_capture: Video capture class that provides frames for object detection
-        detector: Target identifier/detector
-        fps_tracker: Tracks the fps of image processing
-    """
+    if marker_IDs is not None:
+        for i, (ids, corners) in enumerate(zip(marker_IDs, marker_corners)):
+            corners = corners.reshape(4, 2).astype(np.float32)
 
-    def __init__(self, conf: SimpleNamespace) -> None:
-        """Constructor for AutoUav.
+            # Define 3D model points of the marker
+            half_size = marker_size_cm / 2.0
+            obj_points = np.array([
+                [-half_size,  half_size, 0],
+                [ half_size,  half_size, 0],
+                [ half_size, -half_size, 0],
+                [-half_size, -half_size, 0]
+            ], dtype=np.float32)
 
-        Args:
-            conf: App configuration
-        """
-        self.conf = conf
-        self.video_capture: VideoCapture = VideoCapture(conf.video)
-        self.camera_coordinate_transformer: CameraCoordinateTransformer = (
-            CameraCoordinateTransformer(conf.video)
-        )
-       
-        self.detector: Detector = DetectorManager(conf.detector).get_detector()
-        self.fps_tracker: FPSTracker = FPSTracker()
+            retval, rVec, tVec = cv.solvePnP(
+                obj_points, corners, cam_mat, dist_coef
+            )
 
-        self.use_depthai = getattr(conf, "use_depthai", False)
-        self.correct_marker = False
-        self.marker_detected_before =False
+            if not retval:
+                continue
 
-    # assuming async def is here to save all frame dats
-    async def temp_save(self, frame, lat=None, lon=None, hdg=None) -> None:
-        pass
+            distance = np.linalg.norm(tVec)
 
-    # we then want to check id to process the temp saved to deicede wheter to return
-    # should read temp data and return perm
-    def check_ids(self, t_frame, found_ids, t_lat, t_lon, t_hdg):
-        # run on all temp saved
-        if found_ids is None:
-            # print("no ids")
-            return t_frame, None, t_lat, t_lon, t_hdg
-        
-        #Correct Marker Flag throws true if any ids are equivalent to target_IDs
-        #loop that checks if anything in goal_ids is in target -- any(TRUE) flags true on any response
-        self.correct_marker = any(id in target_IDs for id in found_ids)
-        
-        #return correct_marker
-        #If the marker is true, we save the datapack
-        if self.correct_marker:
-            #and not self.marker_detected_before:
-            #self.datapack_save(t_frame, found_ids)
-            self.marker_detected_before = True
-            # possibly add save CORRECT MARKER, instead of just temp
-            return t_frame, found_ids, t_lat, t_lon, t_hdg
+            corners_int = corners.astype(int)
+            top_right = corners_int[0].ravel()
+            bottom_right = corners_int[2].ravel()
 
-        # If no correct_marker but found_ids wasn’t None, still return something
-        return t_frame, None, t_lat, t_lon, t_hdg
-    
-    def clean_up(self) -> None:
-        """Cleanup for AutoUav."""
-        logger.info("Cleaning up")
-        self.video_capture.stop()
-        cv2.destroyAllWindows()
+            cv.polylines(frame, [corners_int], True, (0, 255, 255), 4, cv.LINE_AA)
+            cv.drawFrameAxes(frame, cam_mat, dist_coef, rVec, tVec, marker_size_cm * 0.5)
 
-    def run(self) -> None:
-        """Runs the main logic."""
-        logger.info("AutoUav starting up...")
-        self.video_capture.start()
+            cv.putText(
+                frame,
+                f"id: {ids[0]} Dist: {round(distance, 2)}",
+                top_right,
+                cv.FONT_HERSHEY_PLAIN,
+                1.3,
+                (0, 0, 255),
+                2,
+                cv.LINE_AA,
+            )
+            cv.putText(
+                frame,
+                f"x:{round(tVec[0][0], 1)} y:{round(tVec[1][0], 1)}",
+                bottom_right,
+                cv.FONT_HERSHEY_PLAIN,
+                1.0,
+                (0, 0, 255),
+                2,
+                cv.LINE_AA,
+            )
+    else:
+        print("No ArUco markers detected.")
 
+    #cv.imshow("Aruco Frame", frame)
+    #cv.waitKey(0)
+    #cv.destroyAllWindows()
+    print(distance)
 
-        while True:
-            # get frame from the video capture 
-            frame = self.video_capture._capture_frames()
-
-            #drone_lat, drone_long, heading_deg = self.gpspull(),
-            #lat, lon =  detect_marker_and_get_gps(frame, marker_size_cm, cam_mat, dist_coef, drone_lat, drone_long, heading_deg)
-            # get frame from the video capture
-
-            if frame is None:
-                logger.warning("Recieved Empty Frame")
-                cv2.waitKey(1)
-             
-            if frame is not None:
-                lat, lon, hdg = gpsgrabber()
-                logger.info(f"Received GPS Data - Lat: {lat}, Lon: {lon}, Heading: {hdg}")
-
-                frame = self.video_capture._capture_frames()
-                frame_procc = None
-                print("before self.detector")
-                corners, ids, _ = self.detector.detect(frame, True)
-
-                # assuming a call to async function here
-                # print("Got GPS Coordinates and Frame at same time.")
-                #= asyncio.run(CONCURRENT_FRAME_AND_GPS(frame, ids))
-                
-                # add a wait time 
-                #print("about to save permant_data")
-                t_frame, matched_ids, t_lat, t_lon, t_hdg= self.check_ids(frame, ids, lat, lon, hdg)
-                logger.info(f"Current id: {matched_ids}")
-                #print("perm data after check ids")
-
-                #5 if we found a new “correct” marker, compute its GPS,
-                if matched_ids is not None:
-                    
-                    distance, frame_p= detect_marker_and_get_gps(
-                        t_frame,
-                        marker_size_cm,
-                        #cam_mat,
-                        #dist_coef,
-                        #t_lat,
-                        #t_lon,
-                        #t_hdg,
-                    )
-                    # add a frame time of 5sec or so 
-
-                    cv2.imshow("Video Capture", frame_p)
-                    if cv2.waitKey(1) & 0xFF == ord("q"):
-                        break
-                    #marker_lat, marker_long = send_rfm(marker_lat, marker_long)
-                    #print(f"Marker GPS Coordinates OF correct marker→ lat: {marker_lat}, lon: {marker_long}")
-        
-            # else: delete temp data
-
-                    # if no corners are detected, show the frame and continue to next frame
-                    '''
-            if not corners:
-                if self.conf.video.show_video:
-                    cv2.imshow("Video Capture", frame)
-                    print("after video capture")
-                    #wait for user to press any key
-                if cv2.waitKey(1) & 0xFF == ord("q"):
-                    break     continue
-                '''
-           
-            if cv2.waitKey(1) & 0xFF == ord("q"):
-                break
-
-        self.clean_up()
-        logger.info("Shutting down gracefully")
-
-
-
-
-if __name__ == "__main__":
-    config: SimpleNamespace = read_json("config.json")
-
-    auto_uav = AutoUav(config)
-    auto_uav.run()
+    return distance, frame
