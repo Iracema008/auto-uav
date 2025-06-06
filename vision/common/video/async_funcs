@@ -2,12 +2,15 @@
 
 import asyncio
 import cv2
+import os
 
 from common.video.gps_pull_mod import gpsgrabber
 from common.video.video_capture import VideoCapture
 
 #GPS PULLER
 array_Frame = None
+
+image_counter = 0
 
 async def gps_coords():
     print("Give GPS Coordinates")
@@ -17,20 +20,50 @@ async def gps_coords():
     return lat, lon, hdg 
 
 
+# async def save_frame(temp_frame, temp_ids):
+#     print("Saving frame...")
+#     #await asyncio.sleep(2)
+
+
+#     gray =cv2.cvtColor(temp_frame, cv2.COLOR_BGR2GRAY)
+#     cv2.imwrite("/home/pi/autonomous-uav/vision/save_images/saved_frame", gray)
+    
+#     #possibly write to list
+#     with open("temp_ids_save.txt", "w") as file:
+#         file.write(str(temp_ids))
+        
+#     image_counter += 1
+
+#     print("Frame saved.")
+#     return (temp_frame, temp_ids)
+
 async def save_frame(temp_frame, temp_ids):
-    print("Saving frame...")
-    #await asyncio.sleep(2)
+    global image_counter
 
-    gray =cv2.cvtColor(temp_frame, cv2.COLOR_BGR2GRAY)
-    cv2.imwrite("temp_frame_save.png", gray)
+    print("Saving frame…")
     
-    #possibly write to list
-    with open("temp_ids_save.txt", "w") as file:
+    gray = cv2.cvtColor(temp_frame, cv2.COLOR_BGR2GRAY)
+
+    save_dir = "/home/pi/autonomous-uav/vision/save_images"
+    os.makedirs(save_dir, exist_ok=True)
+
+    filename = f"frame{image_counter:04d}.png"
+    full_path = os.path.join(save_dir, filename)
+
+    success = cv2.imwrite(full_path, gray)
+    if not success:
+        print(f"Failed to write image to {full_path}")
+    else:
+        print(f"Saved image to {full_path}")
+    
+    ids_file = os.path.join(save_dir, "temp_ids_save.txt")
+    with open("/home/pi/autonomous-uav/vision/save_images/temp_ids_save.txt", "w") as file:
         file.write(str(temp_ids))
-    
-    print("Frame saved.")
-    return (temp_frame, temp_ids)
 
+    image_counter += 1
+
+    print("Frame + IDs saved.")
+    return temp_frame, temp_ids
 
 t_lat = 0
 t_lon = 0
