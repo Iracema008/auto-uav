@@ -21,6 +21,7 @@ from common.video.asyncfunc import CONCURRENT_FRAME_AND_GPS
 from common.video.rpi_test import trigger_flags
 from pymavlink import mavutil
 from common.video.gps_pull_mod import arm_cont
+from common.video.distance_calculations import pythag_distance
 
 logger = get_logger(__name__)
 
@@ -36,13 +37,14 @@ calib_data = np.load(calib_data_path)
 cam_mat = calib_data["camMatrix"]
 dist_coef = calib_data["distCoef"]
 
-target_IDs = [2, 7 ]
-marker_size_cm = 30.48
+target_IDs = [5,  3]
+marker_size_cm = 25.4
 
 
 serial_port = '/dev/ttyACM0'
 baudrate =  115200
 
+correct =False
 #print("Connecting to Pixhawk...")
 master = mavutil.mavlink_connection(serial_port, baud=baudrate)
 
@@ -89,10 +91,14 @@ class AutoUav:
         self.correct_marker = any(id in target_IDs for id in found_ids)
         
         if self.correct_marker:
+            global correct
+            correct = True
             #and not self.marker_detected_before:
             #self.datapack_save(t_frame, found_ids)
-            self.marker_detected_before = True
             light = trigger_flags(1,1)
+            self.marker_detected_before = True
+           
+            
 
             return t_frame, found_ids, t_lat, t_lon, t_hdg
 
@@ -110,12 +116,12 @@ class AutoUav:
         logger.info("AutoUav starting up...")
         self.video_capture.start()
 
-        pix = arm_cont()
+        #pix = arm_cont()
     
         #fix this to wait fopix = arm_cont()
 
-        while (pix == True):
-        #while True: 
+        #while (pix == True):
+        while True: 
             # get frame from the video capture 
             frame = self.video_capture._capture_frames()
 
@@ -126,20 +132,20 @@ class AutoUav:
             if frame is not None:
                 # Grab lat,lon, hdg from pixhawk
                 lat, lon, hdg = gpsgrabber()
-                logger.info(f"Received GPS Data - Lat: {lat}, Lon: {lon}, Heading: {hdg}")
+                #logger.info(f"Received GPS Data - Lat: {lat}, Lon: {lon}, Heading: {hdg}")
 
                 frame = self.video_capture._capture_frames()
                 frame_procc = None
-                print("before self.detector")
+                
                 corners, ids, _ = self.detector.detect(frame, True)
 
                 
-                asyncio.run(CONCURRENT_FRAME_AND_GPS(frame, ids))
-                
                 # add a wait time 
                 t_frame, matched_ids, t_lat, t_lon, t_hdg= self.check_ids(frame, ids, lat, lon, hdg)
-                logger.info(f"Matched id: {ids}")
+                #logger.info(f"Matched id: {ids}")
 
+                
+                                
                 #5 if we found a new “correct” marker, compute its GPS,
                 #if matched_ids is not None:
                 
@@ -147,19 +153,32 @@ class AutoUav:
                     t_frame,
                     marker_size_cm,
                 )
-                # add a frame time of 5sec or so 
 
+                if (correct == True):
+                    asyncio.run(CONCURRENT_FRAME_AND_GPS(frame_p, ids))
+                    
+                if distance is not None:
+                    marker_lat, marker_long = pythag_distance (distance, t_lat, t_lon, hdg)
+
+                    logger.info(f"pythag calc: {marker_lat}, {marker_long}")
+                    #logger.info(f"Marker GPS Coordinates OF correct marker→ lat: {marker_lat}, lon: {marker_long}")
+                    # add a frame time of 5sec or so 
+                else: 
+                    continue
+
+            
                 cv2.imshow("Video Capture", frame_p)
                 if cv2.waitKey(1) & 0xFF == ord("q"):
                     break
+
                 #marker_lat, marker_long = send_rfm(marker_lat, marker_long)
-                logger.info(f"Marker GPS Coordinates OF correct marker→ lat: {marker_lat}, lon: {marker_long}")
-        
+               
+            '''
             # else: delete temp data
 
                     # if no corners are detected, show the frame and continue to next frame
 
-            '''
+            
             if not corners:
                 if self.conf.video.show_video:
                     cv2.imshow("Video Capture", frame)
@@ -167,7 +186,7 @@ class AutoUav:
                     #wait for user to press any key
                 if cv2.waitKey(1) & 0xFF == ord("q"):
                     break     continue
-                '''
+            '''
            
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 break
