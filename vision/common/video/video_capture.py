@@ -53,15 +53,16 @@ class VideoCapture:
             camera_rgb.setPreviewSize(640,480)
             camera_rgb.setInterleaved(False)
             camera_rgb.setColorOrder(dai.ColorCameraProperties.ColorOrder.BGR)
-            x_out = pipeline.create(dai.node.XLinkOut)
-
-            x_out.setStreamName("rgb")
-            # Linking output and input stream
-            camera_rgb.preview.link(x_out.input)
-        
-            self.device = dai.Device(pipeline) 
-            # Output queue will be used to get the rgb frames from the output defined above
-            self.queue_rgb = self.device.getOutputQueue("rgb", maxSize =10 , blocking= True)
+            
+            # In DepthAI v3, XLinkOut nodes are no longer needed
+            # In v3, create output queue directly from the output object
+            # The queue is created BEFORE pipeline is started
+            # Note: createOutputQueue in v3 doesn't take 'name' argument
+            self.queue_rgb = camera_rgb.preview.createOutputQueue(maxSize=10, blocking=True)
+            
+            # Start pipeline directly - this connects to the device
+            self.pipeline = pipeline
+            self.pipeline.start()
             #logger.info("Initialized Depthai pipeline")
         else:
             self.video_cap: cv2.VideoCapture = cv2.VideoCapture(0)    
@@ -125,7 +126,20 @@ class VideoCapture:
         """Stop the video capture thread."""
         logger.info("Stopping video capture")
         self.stop_event.set()
-        self.capture_thread.join()
+        if hasattr(self, 'capture_thread'):
+            self.capture_thread.join()
+        
+        if self.use_depthai:
+            if hasattr(self, 'device'):
+                logger.info("Closing DepthAI device")
+                self.device.close()
+            elif hasattr(self, 'pipeline'):
+                logger.info("Stopping DepthAI pipeline")
+                try:
+                    pass
+                    # self.pipeline.stop() 
+                except Exception as e:
+                    logger.error(f"Error stopping pipeline: {e}")
 
     def read(self) -> Union[numpy.ndarray, None]:
         """Read a frame from the frame_buffer (not from the VideoCapture).

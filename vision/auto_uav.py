@@ -221,4 +221,9 @@ if __name__ == "__main__":
     config: SimpleNamespace = read_json("config.json")
 
     auto_uav = AutoUav(config)
-    auto_uav.run()
+    try:
+        auto_uav.run()
+    except KeyboardInterrupt:
+        logger.info("Keyboard Interrupt")
+    finally:
+        auto_uav.clean_up()
