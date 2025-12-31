@@ -2,6 +2,7 @@
 
 import cv2
 import depthai as dai
+import os
 from types import SimpleNamespace
 
 from common.video.fps_counter import FPSTracker
@@ -14,6 +15,7 @@ from common.video.video_capture import VideoCapture
 
 
 logger = get_logger(__name__)
+saved_folder = "saved-aruco"
 target_IDs = [3, 7]
 
 class AutoUav:
@@ -55,10 +57,10 @@ class AutoUav:
 
 
     #IS THIS SCRAPS FROM OLD METHOD?
-    #def flagged_marker(self, correct_marker)->None:
-    # eventually want to save image -- we want to save the greyscale image from the detector
-    #   cv2.imwrite("Snapshot", )
-    #   pass
+    def flagged_marker(self, correct_marker)->None:
+       #eventually want to save image -- we want to save the greyscale image from the detector
+       cv2.imwrite("Snapshot", )
+       pass
    
    
     ######################################### -- We still need to write a time limit so it doesnt go infinite
@@ -83,6 +85,7 @@ class AutoUav:
         #If the marker is true, we save the datapack
         if self.correct_marker and not self.marker_detected_before:
             #Do we
+            print(f"Correct marker FOUND : {self.correct_marker}")
             self.datapack_save(frame, found_ids)
             self.marker_detected_before = True
             
@@ -93,15 +96,22 @@ class AutoUav:
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         cv2.imwrite("pack_image.png", gray)
 
-        #this will write data to a .txt -- Are Global Variable easier?
-        with open("datapack.txt", 'w') as file:
+        if not os.path.exists(saved_folder):
+            print("Fix the folder path")
 
-            #if it is a list, print it like one Otherwise just write it
-            if isinstance(FLIGHTDATA, list):
-                file.writelines([str(line) + "\n" for line in FLIGHTDATA])
+        file_save = os.path.join(saved_folder, "pack_image.png")
+        cv2.imwrite(file_save, gray)
+        print(f" Saved image to: {file_save}")
+
+
+        #this will write data to a .txt -- Are Global Variable easier?
+        #with open("datapack.txt", 'w') as file:
+           #if it is a list, print it like one Otherwise just write it
+            #if isinstance(FLIGHTDATA, list):
+            #    file.writelines([str(line) + "\n" for line in FLIGHTDATA])
             
-            else:
-                file.write(str(FLIGHTDATA))
+            #else:
+            #    file.write(str(FLIGHTDATA))
 
 
 
