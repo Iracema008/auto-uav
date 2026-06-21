@@ -1,4 +1,4 @@
-# autonomous-uav
+# autonomous-uav (2024 - spring 2025)
 
 ### Running the ArUco detection
 1. Ensure git lfs is installed and initialized:
